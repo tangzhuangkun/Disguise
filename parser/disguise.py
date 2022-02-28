@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# author: Tang Zhuangkun
+
 import sys
 sys.path.append("..")
 import public.db_operator as db_operator
