@@ -1,0 +1,17 @@
+# 根据dockerfile创建一个叫disguise-docker的镜像, 命令最后的 点 . 不要省略
+
+    docker build -t disguise-docker .
+
+# 使用镜像
+##################################
+–name：容器名，此处命名为disguise-in-docker
+-p：端口映射，此处映射 主机5001（前）端口 到 容器的5000（后）端口
+-d：后台运行容器，保证在退出终端后容器继续运行
+-v：主机和容器的目录映射关系，":"前为主机目录，之后为容器目录。 复制当前目录的所有文件到/usr/src/app/disguise目录下。
+--restart：always 容器退出时总是重启
+--privileged=true：执行容器内文件需要的权限
+##################################
+
+    docker run -it --name disguise-in-docker -v /Users/tangzekun/Desktop/KunCloud/Coding_Projects/Disguise:/usr/src/app/disguise -p 5001:5000 --restart always --privileged=true disguise-docker
+
+    docker run -it --name disguise-in-docker -p 5001:5000 --restart always --privileged=true disguise-docker
