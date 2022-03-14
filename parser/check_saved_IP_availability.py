@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # author: Tang Zhuangkun
 
+import time
 import sys
 sys.path.append('..')
 import public.db_operator as db_operator
@@ -30,34 +31,50 @@ class CheckSavedIPAvailability:
 		
 		return IP_dict_list
 		
-	def delete_unavailable_ip(self,db_name,ip):
-		# 如果ip地址已经失活，从数据库中删除
-		# db_name: 需要查询数据库的名称， 来自 db_config.py 的 DATABASE
-		# ip: IP地址
+	def update_ip_status(self,db_name,ip, result):
+		'''
+		更新ip状态
+		:param db_name: 需要查询数据库的名称,默认应该为 parser_component
+		:param ip: 地址+端口号 例如 61.145.48.100:9999
+		:param result: 如 {'is_https': 0, 'is_http': 0}， 0，代表不符合且不存活； 如果是1 代表符合且存活
+		:return:
+		'''
 		
-		#删除该无效的ip地址		
-		sql="DELETE from IP_availability where ip_address='%s'" % (ip)
-		db_operator.DBOperator().operate('delete', db_name, sql)
+		#更新ip状态
+		sql = "UPDATE IP_availability SET is_https = {is_https}, is_http = {is_http} where ip_address = " \
+			  "'{ip}'".format(is_https=result.get("is_https"), is_http=result.get("is_http"), ip=ip)
+		print(sql)
+		db_operator.DBOperator().operate('update', db_name, sql)
 		
 		# 日志记录	
 		msg = sql
 		# CustomLogger().log_writter(msg,'debug')
 		
 	
-	def check_ip_availability_and_delete_unable_from_DB(self,db_name,IP_dict_list):
-		# db_name: 需要查询数据库的名称， 来自 db_config.py 的 DATABASE
-		# IP_dict_list, 输入的是一个list，里面装有dict，形式如：[{'ip_address': '1.24.185.60:9999'}, ,,,]
-		# 检查查询到的所有ip的可用性，如果不可用，则从数据库中删除
-			
+	def check_ip_availability_and_update_IP_status_on_DB(self,db_name,IP_dict_list):
+		'''
+		检查查询到的所有ip的可用性，如果不可用，则在数据库中更新状态
+		:param db_name: 需要查询数据库的名称,默认应该为 parser_component
+		:param IP_dict_list: 输入的是一个list，里面装有dict，形式如：[{'ip_address': '1.24.185.60:9999'}, ,,,]
+		:return:
+		'''
+
+		# 遍历这些IP
 		for ip_dict in IP_dict_list:
-			#挨个检查IP活性, 舍去端口号
-			is_available = check_ip_availability.CheckIPAvailability().check_single_ip_availability(ip_dict['ip_address'])
-			if not is_available:
-				self.delete_unavailable_ip(db_name, ip_dict['ip_address'])	
+			#result 如 {'is_https': 0, 'is_http': 0}， 0，代表不符合且不存活； 如果是1 代表符合且存活
+			result = check_ip_availability.CheckIPAvailability().check_single_ip_availability(ip_dict['ip_address'])
+			print(ip_dict['ip_address'], result)
+			print()
+			# 更新已存储的IP存活状态
+			self.update_ip_status(db_name, ip_dict['ip_address'],result)
 				
 	def multiple_threading_checking_saved_ips(self,db_name):
+		'''
 		# 多线程检查数据库中ip的有效性
-		
+		:param db_name: 需要查询数据库的名称,默认应该为 parser_component
+		:return:
+		'''
+
 		# 数据库中输出的是一个list，里面装有dict，形式如：[{‘ip_address’:'61.145.48.100:9999'},,,,,]
 		IP_dict_list = self.get_all_db_IPs('parser_component')
 		
@@ -73,7 +90,7 @@ class CheckSavedIPAvailability:
 		running_threads = []
 		for section_index in range(len(divided_ips_list_into_sections)):
 			# 创建新线程
-			running_thread = threading.Thread(target=self.check_ip_availability_and_delete_unable_from_DB,args=(db_name,divided_ips_list_into_sections[section_index]))	
+			running_thread = threading.Thread(target=self.check_ip_availability_and_update_IP_status_on_DB,args=(db_name,divided_ips_list_into_sections[section_index]))
 			running_threads.append(running_thread)	
 		
 		# 开启新线程
@@ -97,6 +114,9 @@ class CheckSavedIPAvailability:
 
 
 if __name__ == "__main__":
+	time_start = time.time()
 	go = CheckSavedIPAvailability()
 	go.main()
+	time_end = time.time()
+	print('Time Cost: ' + str(time_end - time_start))
 		

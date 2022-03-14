@@ -20,16 +20,17 @@ class CollectProxyIP:
         pass
 
     def collect_web_content(self, db_name, pageNum):
-        # db_name: 创建哪个模块的数据库连接池
-        # pageNUm：抓取每个IP代理网站的前多少页
-
+        '''
         # 根据拼接处的网站地址
         # 多线程抓取
         # 挨个地址，挨页解析
         # 将解析出的内容存入数据库
-        # 输出： 抓取到的IP信息存入数据库
-        
-        
+
+        :param db_name: 创建哪个模块的数据库连接池， 默认应该为 parser_component
+        :param pageNum: 抓取每个IP代理网站的前多少页
+        :return: 抓取到的IP信息存入数据库
+        '''
+
         # 获取配置文件中的IP代理网站地址
         ip_urls_list = conf.IP_URL_LIST
         
@@ -65,9 +66,12 @@ class CollectProxyIP:
 
 
     def check_and_save_single_ip(self, db_name, ip_info):
-        # 检查单个IP的可用性，可用的话，存入数据库
-        # param: db_name,需要插入数据库的名称， 来自 db_config.py 的 DATABASES
-        # param: 单个ip信息的元组，('104.129.194.114:10605', '高匿', 'HTTP')
+        '''
+        检查单个IP的可用性，可用的话，存入数据库
+        :param db_name: db_name,需要插入数据库的名称， 默认应该为 parser_component
+        :param ip_info: 单个ip信息的元组，('104.129.194.114:10605', '高匿', 'HTTP')
+        :return:
+        '''
 
         # 获取iP
         ip = ip_info[0]
@@ -75,12 +79,14 @@ class CollectProxyIP:
         ip_type = ip_info[2]
 
         # 检查IP可用性
+        # 0，代表不符合且不存活； 如果是1 代表符合且存活
+        # 如{'is_https': 0, 'is_http': 0}
         result = check_IP_availability.CheckIPAvailability().check_single_ip_availability(ip)
         # SQL 插入语句
-        sql = "INSERT INTO IP_availability(ip_address,is_anonymous,is_available,type) " \
-              "VALUES ('%s','%s','%s','%s') ON DUPLICATE KEY UPDATE ip_address = ip_address" % (
-              ip, 1, 1, ip_type)
-        if result:
+        sql = "INSERT INTO IP_availability(ip_address, is_http, is_https) " \
+              "VALUES ('%s','%s','%s') " % (ip, result.get("is_http"), result.get("is_https"))
+        # 如果 http 或者 https 可用，均存入数据库
+        if result.get("is_http")==1 or result.get("is_https")==1:
             # 存入数据库
             db_operator.DBOperator().operate('insert', db_name, sql)
 
@@ -121,6 +127,8 @@ class CollectProxyIP:
     
     
 if __name__ == "__main__":
+    time_start = time.time()
     go = CollectProxyIP()
     go.main()
-        
+    time_end = time.time()
+    print('Time Cost: ' + str(time_end - time_start))
